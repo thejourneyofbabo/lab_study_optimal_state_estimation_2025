@@ -25,8 +25,8 @@ Based on: "Optimal State Estimation" by Dan Simon & Practice_06 PDF
        - Period: 2π, Amplitude: 3, Vertical Shift: 6
        - Formula: V(t) = 3 * sin(t) + 6
    (2) Yaw Rate (psi_dot):
-       - Period: 6π, Amplitude: π/30, Vertical Shift: π/18
-       - Formula: psi_dot(t) = (π/30) * sin(t/3) + (π/18)
+       - Period: 2π, Amplitude: π/18, Vertical Shift: 0
+       - Formula: psi_dot(t) = (π/18) * cos(t)
 
 -------------------------------------------------------------------------------
 """
@@ -44,9 +44,9 @@ n_steps = len(time)  # 시뮬레이션 스텝 수
 # Velocity: V = 3*sin(t) + 6
 input_v = 3 * np.sin(time) + 6
 
-# Yaw Rate: psi_dot = (π/30)*sin(t/3) + (π/18)
+# Yaw Rate: psi_dot = (π/18)*cos(t)
 # 주파수(omega) = 2pi / 6pi = 1/3
-input_yawrate = (np.pi / 30) * np.sin(time / 3) + (np.pi / 18)
+input_yawrate = (np.pi / 18) * np.cos(time)
 
 # 3. 상태 변수 초기화
 # 상태 벡터 x = [x_pos, y_pos, heading_angle]
@@ -76,7 +76,7 @@ for t in range(n_steps - 1):
 plt.figure(figsize=(12, 10))
 
 # 입력 데이터 확인 - Velocity
-plt.subplot(2, 2, 1)
+plt.subplot(3, 2, 1)
 plt.plot(time, input_v, 'b-', linewidth=1.5)
 plt.title('Input Velocity')
 plt.xlabel('Time (s)')
@@ -84,15 +84,32 @@ plt.ylabel('Velocity (m/s)')
 plt.grid(True)
 
 # 입력 데이터 확인 - Yaw Rate
-plt.subplot(2, 2, 2)
+plt.subplot(3, 2, 2)
 plt.plot(time, input_yawrate, 'r-', linewidth=1.5)
 plt.title('Input Yaw Rate')
 plt.xlabel('Time (s)')
 plt.ylabel('Yaw Rate (rad/s)')
 plt.grid(True)
 
+# 상태 변수 - 위치 (x, y)
+plt.subplot(3, 2, 3)
+plt.plot(time, x, 'b-', linewidth=1.5, label='X Position')
+plt.title('Position (X)')
+plt.xlabel('Time (s)')
+plt.ylabel('Position (m)')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(3, 2, 4)
+plt.plot(time, y, 'r-', linewidth=1.5, label='Y Position')
+plt.title('Position (Y)')
+plt.xlabel('Time (s)')
+plt.ylabel('Position (m)')
+plt.legend()
+plt.grid(True)
+
 # 헤딩 각도 (Psi)
-plt.subplot(2, 2, 3)
+plt.subplot(3, 2, 5)
 plt.plot(time, np.rad2deg(psi))
 plt.title('Heading Angle (deg)')
 plt.xlabel('Time (s)')
@@ -100,7 +117,7 @@ plt.ylabel('Degree')
 plt.grid(True)
 
 # 2D 궤적 (Trajectory)
-plt.subplot(2, 2, 4)
+plt.subplot(3, 2, 6)
 plt.plot(x, y, 'b-', linewidth=2)
 plt.plot(x, y, 'ro', label='Start') # 시작점 표시
 plt.plot(x[-1], y[-1], 'go', label='End') # 끝점 표시
