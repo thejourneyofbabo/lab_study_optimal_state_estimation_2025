@@ -256,7 +256,7 @@ P_history = np.zeros((n_steps, n_states, n_states))  # Store covariance history
 
 # 1. 초기 조건 설정
 # 초기 추정값: 
-x_est[0] = np.array([0, 0, 0.0, 0.0]) # 초기 추정값: [0, 0, 0, 0]^T
+x_est[0] = np.array([0, 0, 3.0, 3.0]) # 초기 추정값: [0, 0, 0, 0]^T
 
 # 초기 오차 공분산 P: diag(10000)
 P = np.eye(n_states) * 10000
@@ -402,6 +402,71 @@ ax3.set_xlabel('Time (s)')
 ax3.set_ylabel('Velocity (m/s)')
 ax3.grid(True)
 ax3.legend()
+
+plt.tight_layout()
+plt.show()
+
+
+# -----------------------------------------------------------------------------
+# [Practice 2-2] RMSE Calculation
+# Source [1]: Get the RMSE between estimated state and true value
+# -----------------------------------------------------------------------------
+
+# 1. 속도 참값(True Velocity) 계산
+vx_true = input_v * np.cos(psi)
+vy_true = input_v * np.sin(psi)
+
+# 2. 오차(Error) 계산
+# 추정값(x_est)은 [pos_x, pos_y, vel_x, vel_y]^T 형태
+err_pos_x = x_est[: , 0] - x  # Position X error
+err_pos_y = x_est[: , 1] - y  # Position Y error
+err_vel_x = x_est[: , 2] - vx_true  # Velocity X error
+err_vel_y = x_est[: , 3] - vy_true  # Velocity Y error
+
+# 3. RMSE 계산
+def calculate_rmse(errors):
+   mse = np.mean(errors**2)
+   return np.sqrt(mse)
+
+rmse_pos_x = calculate_rmse(err_pos_x)
+rmse_pos_y = calculate_rmse(err_pos_y)
+rmse_vel_x = calculate_rmse(err_vel_x)
+rmse_vel_y = calculate_rmse(err_vel_y)
+
+# 전체 위치 오차 (Distance Error) RMSE
+dist_error = np.sqrt(err_pos_x**2 + err_pos_y**2)
+rmse_position_total = calculate_rmse(dist_error)
+
+# 4. 결과 출력
+print("="*40)
+print(f"Filter Performance (RMSE) Analysis")
+print("="*40)
+print(f"Position X RMSE : {rmse_pos_x:.4f} m")
+print(f"Position Y RMSE : {rmse_pos_y:.4f} m")
+print(f"Velocity X RMSE : {rmse_vel_x:.4f} m/s")
+print(f"Velocity Y RMSE : {rmse_vel_y:.4f} m/s")
+print("-" * 40)
+print(f"Total Position RMSE : {rmse_position_total:.4f} m")
+print("="*40)
+
+# 5. (선택사항) 오차 그래프 시각화 보강
+plt.figure(figsize=(10, 6))
+plt.subplot(2, 1, 1)
+plt.plot(time, err_pos_x, label='Error X')
+plt.plot(time, err_pos_y, label='Error Y')
+plt.title('Position Estimation Errors')
+plt.ylabel('Meters')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(2, 1, 2)
+plt.plot(time, err_vel_x, label='Error Vx')
+plt.plot(time, err_vel_y, label='Error Vy')
+plt.title('Velocity Estimation Errors')
+plt.ylabel('m/s')
+plt.xlabel('Time (s)')
+plt.legend()
+plt.grid(True)
 
 plt.tight_layout()
 plt.show()
