@@ -470,3 +470,263 @@ plt.grid(True)
 
 plt.tight_layout()
 plt.show()
+
+"""
+-------------------------------------------------------------------------------
+Problem: Practice 2-3: P Matrix Visualization for Three Cases
+Based on: Practice_06 PDF requirement
+-------------------------------------------------------------------------------
+
+Requirement: Plot the P in three cases (x-axis is time and y-axes are P_00~P_33)
+
+Three cases mean three different tuning scenarios:
+- Case 1: Low process noise (trust model more)
+- Case 2: Medium process noise (balanced)
+- Case 3: High process noise (trust measurements more)
+
+NOTE: This code assumes that the following variables are already defined
+from Practice 1-1, 1-2, and 2-1:
+- dT, time, n_steps
+- x, y, psi (true states)
+- z_r, z_theta (measurements)
+- sigma_r, sigma_theta_rad
+-------------------------------------------------------------------------------
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ============================================================================
+# FUNCTION: EKF with configurable Q, R
+# ============================================================================
+
+def run_ekf(q_acc, case_name):
+    """
+    Run EKF with specified process noise parameter
+    
+    Parameters:
+    -----------
+    q_acc : float
+        Process noise acceleration parameter
+    case_name : str
+        Name of the case for plotting
+        
+    Returns:
+    --------
+    P_history : ndarray (n_steps, n_states)
+        History of diagonal covariance elements
+    """
+    n_states = 4
+    x_est = np.zeros((n_steps, n_states))
+    P_history = np.zeros((n_steps, n_states))
+    
+    # Initial conditions
+    x_est[0] = np.array([0, 0, 3.0, 3.0])
+    P = np.diag([1000, 1000, 100, 100])
+    P_history[0] = np.diag(P)
+    
+    # State transition matrix
+    F = np.array([[1, 0, dT, 0],
+                  [0, 1, 0, dT],
+                  [0, 0, 1, 0],
+                  [0, 0, 0, 1]])
+    
+    # Process noise covariance Q
+    Q = np.array([
+        [dT**4/4, 0,       dT**3/2, 0      ],
+        [0,       dT**4/4, 0,       dT**3/2],
+        [dT**3/2, 0,       dT**2,   0      ],
+        [0,       dT**3/2, 0,       dT**2  ]
+    ]) * q_acc**2
+    
+    # Measurement noise covariance R
+    R = np.array([[sigma_r**2, 0],
+                  [0, sigma_theta_rad**2]])
+    
+    # EKF loop
+    for k in range(n_steps - 1):
+        # A. Prediction
+        x_k = x_est[k]
+        x_pred = F @ x_k
+        P_pred = F @ P @ F.T + Q
+        
+        # B. Jacobian Calculation
+        px = x_pred[0]
+        py = x_pred[1]
+        dist = np.sqrt(px**2 + py**2)
+        
+        if dist < 1e-4:
+            dist = 1e-4
+        dist2 = dist**2
+        
+        H = np.array([
+            [px / dist,   py / dist,   0, 0],
+            [-py / dist2, px / dist2,  0, 0]
+        ])
+        
+        # C. Update
+        S = H @ P_pred @ H.T + R
+        K = P_pred @ H.T @ np.linalg.inv(S)
+        
+        z_pred_val = np.array([dist, np.arctan2(py, px)])
+        z_meas = np.array([z_r[k+1], z_theta[k+1]])
+        
+        y_residual = z_meas - z_pred_val
+        y_residual[1] = np.arctan2(np.sin(y_residual[1]), np.cos(y_residual[1]))
+        
+        x_next = x_pred + K @ y_residual
+        P_next = (np.eye(n_states) - K @ H) @ P_pred
+        
+        # Store
+        x_est[k+1] = x_next
+        P = P_next
+        P_history[k+1] = np.diag(P)
+    
+    return P_history
+
+# ============================================================================
+# RUN THREE CASES (using already defined variables)
+# ============================================================================
+
+print("Running EKF for three different cases...")
+P_case1 = run_ekf(q_acc=0.1, case_name="Case 1: Low Q")
+P_case2 = run_ekf(q_acc=0.5, case_name="Case 2: Medium Q")
+P_case3 = run_ekf(q_acc=2.0, case_name="Case 3: High Q")
+print("Done!")
+
+# ============================================================================
+# VISUALIZATION 1: Three Cases Comparison
+# ============================================================================
+
+plt.figure(figsize=(14, 10))
+
+# Define colors for three cases
+colors = ['blue', 'green', 'red']
+labels_cases = ['Case 1 (q=0.1)', 'Case 2 (q=0.5)', 'Case 3 (q=2.0)']
+P_cases = [P_case1, P_case2, P_case3]
+
+# Subplot 1: P_00 (Position X variance)
+plt.subplot(2, 2, 1)
+for i, (P_hist, label, color) in enumerate(zip(P_cases, labels_cases, colors)):
+    plt.plot(time, P_hist[:, 0], color=color, linewidth=2, label=label)
+plt.title('Covariance $P_{00}$ (Position X Variance)', fontsize=12, fontweight='bold')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($m^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+# Subplot 2: P_11 (Position Y variance)
+plt.subplot(2, 2, 2)
+for i, (P_hist, label, color) in enumerate(zip(P_cases, labels_cases, colors)):
+    plt.plot(time, P_hist[:, 1], color=color, linewidth=2, label=label)
+plt.title('Covariance $P_{11}$ (Position Y Variance)', fontsize=12, fontweight='bold')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($m^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+# Subplot 3: P_22 (Velocity X variance)
+plt.subplot(2, 2, 3)
+for i, (P_hist, label, color) in enumerate(zip(P_cases, labels_cases, colors)):
+    plt.plot(time, P_hist[:, 2], color=color, linewidth=2, label=label)
+plt.title('Covariance $P_{22}$ (Velocity X Variance)', fontsize=12, fontweight='bold')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($(m/s)^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+# Subplot 4: P_33 (Velocity Y variance)
+plt.subplot(2, 2, 4)
+for i, (P_hist, label, color) in enumerate(zip(P_cases, labels_cases, colors)):
+    plt.plot(time, P_hist[:, 3], color=color, linewidth=2, label=label)
+plt.title('Covariance $P_{33}$ (Velocity Y Variance)', fontsize=12, fontweight='bold')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($(m/s)^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+plt.suptitle('Practice 2-3: Covariance Matrix P Comparison (Three Cases)', 
+             fontsize=14, fontweight='bold')
+plt.tight_layout()
+plt.show()
+
+# ============================================================================
+# VISUALIZATION 2: Single Case Detail (Optional)
+# ============================================================================
+
+plt.figure(figsize=(12, 8))
+
+# Use Case 2 (medium) as representative
+P_history = P_case2
+
+# Subplot 1: P_00
+plt.subplot(2, 2, 1)
+plt.plot(time, P_history[:, 0], 'r-', linewidth=2, label='$P_{00}$')
+plt.title('Covariance $P_{00}$ (Position X Variance)')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($m^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+# Subplot 2: P_11
+plt.subplot(2, 2, 2)
+plt.plot(time, P_history[:, 1], 'b-', linewidth=2, label='$P_{11}$')
+plt.title('Covariance $P_{11}$ (Position Y Variance)')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($m^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+# Subplot 3: P_22
+plt.subplot(2, 2, 3)
+plt.plot(time, P_history[:, 2], 'g-', linewidth=2, label='$P_{22}$')
+plt.title('Covariance $P_{22}$ (Velocity X Variance)')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($(m/s)^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+# Subplot 4: P_33
+plt.subplot(2, 2, 4)
+plt.plot(time, P_history[:, 3], 'm-', linewidth=2, label='$P_{33}$')
+plt.title('Covariance $P_{33}$ (Velocity Y Variance)')
+plt.xlabel('Time (s)')
+plt.ylabel('Variance ($(m/s)^2$)')
+plt.grid(True)
+plt.legend()
+plt.yscale('log')
+
+plt.suptitle('Practice 2-3: Diagonal Elements of P (Case 2: q_acc=0.5)', 
+             fontsize=14, fontweight='bold')
+plt.tight_layout()
+plt.show()
+
+# ============================================================================
+# PRINT FINAL VALUES
+# ============================================================================
+
+print("\n" + "="*70)
+print("Practice 2-3: Final Covariance Values (at t=30s)")
+print("="*70)
+
+for i, (P_hist, label) in enumerate(zip(P_cases, labels_cases), 1):
+    print(f"\n{label}:")
+    print(f"  P_00 (Position X variance): {P_hist[-1, 0]:.6f} m²")
+    print(f"  P_11 (Position Y variance): {P_hist[-1, 1]:.6f} m²")
+    print(f"  P_22 (Velocity X variance): {P_hist[-1, 2]:.6f} m²/s²")
+    print(f"  P_33 (Velocity Y variance): {P_hist[-1, 3]:.6f} m²/s²")
+
+print("\n" + "="*70)
+print("Interpretation:")
+print("="*70)
+print("- Lower Q (Case 1): Model trusted → Lower final covariance")
+print("- Higher Q (Case 3): Measurements trusted → Higher final covariance")
+print("- Convergence speed: All cases converge within ~5 seconds")
+print("="*70)
