@@ -783,3 +783,185 @@ F_example = np.array([
 print(f"\nExample: F matrix at t=0 (V={V_example:.2f}, ψ={np.rad2deg(psi_example):.2f}°):")
 print(F_example)
 print("="*70)
+
+"""
+-------------------------------------------------------------------------------
+Problem: Practice 3-2: EKF with Dead Reckoning Model
+Based on: Practice_06 PDF
+-------------------------------------------------------------------------------
+
+EKF Implementation:
+- State Vector: x = [pos_x, pos_y, heading]ᵀ (3D)
+- Process Model: Dead Reckoning (nonlinear)
+- Measurement Model: Range & Bearing (same as Practice 2)
+
+Key Difference from Practice 2:
+- Practice 2: CV model (linear, 4D state)
+- Practice 3: DR model (nonlinear, 3D state, uses control inputs V and ψ̇)
+
+-------------------------------------------------------------------------------
+"""
+
+# State vector: x = [pos_x, pos_y, heading]ᵀ
+n_states = 3
+x_est = np.zeros((n_steps, n_states))
+P_history = np.zeros((n_steps, n_states, n_states))
+
+# Initial conditions
+x_est[0] = np.array([0, 0, 0]) # Initial estimate
+P = np.eye(n_states) * 10000
+P_history[0] = P
+
+# Process noise covariance Q (3x3 matrix) - Tuning parameter
+q_pos = 0.1 # Position noise
+q_heading = 0.01 # Heading noise
+
+Q = np.diag([q_pos**2, q_pos**2, q_heading**2])
+
+# Measurement noise covariance R (same as Practice 2)
+R = np.array([[sigma_r**2, 0],
+              [0, sigma_theta_rad**2]])
+
+# EKF Algorithm
+for k in range(n_steps -1):
+   # A. Prediction Step
+   x_k = x_est[k]
+   px, py, psi_k = x_k
+
+   # Control inputs at time k
+   V_k = input_v[k]
+   yawrate_k = input_yawrate[k]
+
+   # Predict next state using Dead Reckoning model
+   x_pred = np.array([
+      px + V_k * dT * np.cos(psi_k),
+      py + V_k * dT * np.sin(psi_k),
+      psi_k + dT * yawrate_k
+   ])
+
+   # Compute Jacobian F at predicted state
+   F = np.array([
+       [1, 0, -V_k * dT * np.sin(psi_k)],
+       [0, 1, V_k * dT * np.cos(psi_k)],
+       [0, 0, 1]
+   ])
+
+   # Predict covariance: P_pred = F * P * F^T + Q
+   P_pred = F @ P @ F.T + Q 
+
+   # B. Jacobian Calculation for Measurement Model 
+   px_pred = x_pred[0]
+   py_pred = x_pred[1]
+   dist = np.sqrt(px_pred**2 + py_pred**2)
+
+   if dist < 1e-4:
+       dist = 1e-4
+   dist2 = dist**2
+
+   H = np.array([
+       [px_pred / dist, py_pred / dist, 0],
+       [-py_pred / dist2, px_pred / dist2, 0]
+   ])
+
+   # C. Update Step
+   # Kalman Gain: K = P_pred * H^T * (H * P_pred * H^T + R)^-1
+   S = H @ P_pred @ H.T + R
+   K = P_pred @ H.T @ np.linalg.inv(S)
+
+   # Predicted measurement 
+   z_pred_val = np.array([dist, np.arctan2(py_pred, px_pred)])
+   z_meas = np.array([z_r[k+1], z_theta[k+1]])
+
+   # Innovation (residual)
+   y_residual = z_meas - z_pred_val
+
+   # Normalize angle residual 
+   y_residual[1] = np.arctan2(np.sin(y_residual[1]), np.cos(y_residual[1]))
+
+   # Update state and covariance 
+   x_next = x_pred + K @ y_residual 
+   P_next = (np.eye(n_states) - K @ H) @ P_pred 
+
+   # Store for next interation
+   x_est[k + 1] = x_next
+   P = P_next 
+   P_history[k + 1] = P
+
+   # Visualization of Dead Reckoning EKF Results
+plt.figure(figsize=(12, 10))
+
+# 1. 2D Trajectory comparison
+plt.subplot(3, 2, 1)
+plt.plot(x, y, 'k-', linewidth=2, label='True Trajectory')
+plt.plot(x_est[:, 0], x_est[:, 1], 'b--', linewidth=2, label='EKF Estimate (DR Model)')
+plt.plot(x[0], y[0], 'go', markersize=10, label='Start')
+plt.plot(x[-1], y[-1], 'ro', markersize=10, label='End')
+plt.title('2D Trajectory: True vs Estimated (DR Model)')
+plt.xlabel('X (m)')
+plt.ylabel('Y (m)')
+plt.axis('equal')
+plt.legend()
+plt.grid(True)
+
+# 2. Position X
+plt.subplot(3, 2, 2)
+plt.plot(time, x, 'k-', linewidth=2, label='True X')
+plt.plot(time, x_est[:, 0], 'b--', linewidth=2, label='Estimated X')
+plt.title('Position X')
+plt.xlabel('Time (s)')
+plt.ylabel('X (m)')
+plt.legend()
+plt.grid(True)
+
+# 3. Position Y
+plt.subplot(3, 2, 3)
+plt.plot(time, y, 'k-', linewidth=2, label='True Y')
+plt.plot(time, x_est[:, 1], 'r--', linewidth=2, label='Estimated Y')
+plt.title('Position Y')
+plt.xlabel('Time (s)')
+plt.ylabel('Y (m)')
+plt.legend()
+plt.grid(True)
+
+# 4. Heading
+plt.subplot(3, 2, 4)
+plt.plot(time, np.rad2deg(psi), 'k-', linewidth=2, label='True Heading')
+plt.plot(time, np.rad2deg(x_est[:, 2]), 'g--', linewidth=2, label='Estimated Heading')
+plt.title('Heading Angle')
+plt.xlabel('Time (s)')
+plt.ylabel('Heading (degrees)')
+plt.legend()
+plt.grid(True)
+
+# 5. Position Error
+plt.subplot(3, 2, 5)
+error_x = x - x_est[:, 0]
+error_y = y - x_est[:, 1]
+plt.plot(time, error_x, 'b-', label='Error X')
+plt.plot(time, error_y, 'r-', label='Error Y')
+plt.title('Position Estimation Error')
+plt.xlabel('Time (s)')
+plt.ylabel('Error (m)')
+plt.legend()
+plt.grid(True)
+
+# 6. Heading Error
+plt.subplot(3, 2, 6)
+error_psi = psi - x_est[:, 2]
+# Normalize angle error to [-π, π]
+error_psi = np.arctan2(np.sin(error_psi), np.cos(error_psi))
+plt.plot(time, np.rad2deg(error_psi), 'g-')
+plt.title('Heading Estimation Error')
+plt.xlabel('Time (s)')
+plt.ylabel('Error (degrees)')
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+print("="*70)
+print("Practice 3-2: EKF with Dead Reckoning Model - Completed")
+print("="*70)
+print(f"Process Noise Q: diag([{q_pos**2:.4f}, {q_pos**2:.4f}, {q_heading**2:.6f}])")
+print(f"Measurement Noise R: diag([{sigma_r**2:.4f}, {sigma_theta_rad**2:.6f}])")
+print("="*70)
