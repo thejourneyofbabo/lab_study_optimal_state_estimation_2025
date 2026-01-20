@@ -965,3 +965,42 @@ print("="*70)
 print(f"Process Noise Q: diag([{q_pos**2:.4f}, {q_pos**2:.4f}, {q_heading**2:.6f}])")
 print(f"Measurement Noise R: diag([{sigma_r**2:.4f}, {sigma_theta_rad**2:.6f}])")
 print("="*70)
+
+"""
+-------------------------------------------------------------------------------
+Problem: Practice 3-3: RMSE Calculation for DR Model
+-------------------------------------------------------------------------------
+"""
+
+# Calculate errors
+err_pos_x = x_est[:, 0] - x
+err_pos_y = x_est[:, 1] - y
+err_psi = psi - x_est[:, 2]
+
+# Normalize heading error to [-π, π]
+err_psi = np.arctan2(np.sin(err_psi), np.cos(err_psi))
+
+# RMSE calculation function
+def calculate_rmse(errors):
+    mse = np.mean(errors**2)
+    return np.sqrt(mse)
+
+# Calculate RMSE for each state
+rmse_pos_x = calculate_rmse(err_pos_x)
+rmse_pos_y = calculate_rmse(err_pos_y)
+rmse_heading = calculate_rmse(err_psi)
+
+# Total position RMSE
+dist_error = np.sqrt(err_pos_x**2 + err_pos_y**2)
+rmse_position_total = calculate_rmse(dist_error)
+
+# Print results
+print("="*70)
+print("Practice 3-3: RMSE Analysis (Dead Reckoning Model)")
+print("="*70)
+print(f"Position X RMSE      : {rmse_pos_x:.4f} m")
+print(f"Position Y RMSE      : {rmse_pos_y:.4f} m")
+print(f"Heading RMSE         : {np.rad2deg(rmse_heading):.4f} degrees")
+print("-"*70)
+print(f"Total Position RMSE  : {rmse_position_total:.4f} m")
+print("="*70)
