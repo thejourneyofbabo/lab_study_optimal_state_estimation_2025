@@ -730,3 +730,56 @@ print("- Lower Q (Case 1): Model trusted → Lower final covariance")
 print("- Higher Q (Case 3): Measurements trusted → Higher final covariance")
 print("- Convergence speed: All cases converge within ~5 seconds")
 print("="*70)
+
+"""
+-------------------------------------------------------------------------------
+Problem: Practice 3-1: Derive the Process Model for Dead Reckoning
+Based on: Practice_06 PDF
+-------------------------------------------------------------------------------
+
+Dead Reckoning Model:
+- State Vector: x = [pos_x, pos_y, heading]ᵀ (3D)
+- Control Input: u = [V, yaw_rate]ᵀ
+
+Nonlinear State Equation:
+  x(t+1) = x(t) + V·dT·cos(ψ(t))
+  y(t+1) = y(t) + V·dT·sin(ψ(t))
+  ψ(t+1) = ψ(t) + dT·ψ̇
+
+Jacobian Matrix F = ∂f/∂x:
+      ⎡ 1   0   -V·dT·sin(ψ) ⎤
+  F = ⎢ 0   1    V·dT·cos(ψ) ⎥
+      ⎣ 0   0    1           ⎦
+
+-------------------------------------------------------------------------------
+"""
+
+print("="*70)
+print("Practice 3-1: Process Model Jacobian Derivation")
+print("="*70)
+print("\nDead Reckoning Nonlinear State Equation:")
+print("  x(t+1) = x(t) + V·dT·cos(ψ(t))")
+print("  y(t+1) = y(t) + V·dT·sin(ψ(t))")
+print("  ψ(t+1) = ψ(t) + dT·ψ̇")
+print("\nState Vector: x = [x, y, ψ]ᵀ (3D)")
+print("Control Input: u = [V, ψ̇]ᵀ")
+print("\nJacobian Matrix F = ∂f/∂x:")
+print("\n    ⎡ 1   0   -V·dT·sin(ψ) ⎤")
+print("F = ⎢ 0   1    V·dT·cos(ψ) ⎥")
+print("    ⎣ 0   0    1           ⎦")
+print("\nNote: F is evaluated at the predicted state at each time step")
+print("="*70)
+
+# Example: Calculate F at t=0
+V_example = input_v[0]
+psi_example = psi[0]
+
+F_example = np.array([
+    [1, 0, -V_example * dT * np.sin(psi_example)],
+    [0, 1,  V_example * dT * np.cos(psi_example)],
+    [0, 0,  1]
+])
+
+print(f"\nExample: F matrix at t=0 (V={V_example:.2f}, ψ={np.rad2deg(psi_example):.2f}°):")
+print(F_example)
+print("="*70)
